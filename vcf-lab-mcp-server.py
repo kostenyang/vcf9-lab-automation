@@ -47,6 +47,43 @@ SDDC_MANAGER_PASS = "VMware1!VMware1!"
 
 DNS_SERVER = "10.0.0.200"
 
+# ── Lab environment map (M01 / M02 / M03 — 9.0 與 9.1 共用 IP，差別只在已部署的版本)
+LAB_ENVIRONMENTS = {
+    "M01": {
+        "purpose": "Main VCF 9 management domain (9.0 by default, upgrade-able to 9.1)",
+        "vcenter_fqdn":     "vcf-m01-vc01.home.lab",
+        "vcenter_ip":       "10.0.1.9",
+        "sddc_manager_fqdn":"vcf-m01-sddcm01.home.lab",
+        "sddc_manager_ip":  "10.0.1.5",
+        "vcf_installer_ip": "10.0.1.4",
+        "esxi_hosts":       ["10.0.1.10", "10.0.1.11", "10.0.1.12", "10.0.1.13"],
+        "deploy_script_90": "autodeployvcf9m01.ps1",
+        "deploy_script_91": "autodeployvcf91m01.ps1",
+    },
+    "M02": {
+        "purpose": "Secondary VCF 9 management domain",
+        "sddc_manager_ip":  "10.0.1.18",
+        "vcf_installer_ip": "10.0.1.4",
+        "esxi_hosts":       ["10.0.1.14", "10.0.1.15", "10.0.1.16", "10.0.1.17"],
+        "deploy_script_90": "autodeployvcf9m02.ps1",
+        "deploy_script_91": "autodeployvcf91m02.ps1",
+    },
+    "M03": {
+        "purpose": "Tertiary VCF 9 management domain",
+        "sddc_manager_ip":  "10.0.1.56",
+        "vcf_installer_ip": "10.0.1.4",
+        "esxi_hosts":       ["10.0.1.50", "10.0.1.51", "10.0.1.52", "10.0.1.53"],
+        "deploy_script_90": "autodeployvcf9m03.ps1",
+        "deploy_script_91": "autodeployvcf91m03.ps1",
+    },
+    "VCF5-M02": {
+        "purpose": "Legacy VCF 5.x workload domain (different deploy path)",
+        "esxi_hosts":       ["10.0.1.14", "10.0.1.15", "10.0.1.16", "10.0.1.17"],
+        "deploy_script":    "autodeployvcfm02.ps1",
+        "note":             "ESXi IP overlaps with VCF9 M02 — only one can be active",
+    },
+}
+
 SSL_CERTFILE = "/opt/vcf-mcp/cert.pem"
 SSL_KEYFILE  = "/opt/vcf-mcp/key.pem"
 
@@ -310,6 +347,120 @@ def ping_host(host: str, count: int = 3) -> str:
         return (result.stdout + result.stderr).strip()
     except Exception as exc:
         return f"Ping error: {exc}"
+
+
+@mcp.tool()
+def vcf_version(
+    host: str,
+    host_type: str = "auto",
+    username: str = "",
+    password: str = "",
+) -> str:
+    """
+    偵測 VCF 元件版本。Claude 可用此判斷某環境是 VCF 9.0 還是 9.1。
+
+    host_type: "auto" / "sddc" / "installer" / "vcenter"
+      auto: 自動依序嘗試 SDDC Manager → VCF Installer → vCenter
+    username/password: 留空時使用該元件的 lab 預設帳密
+
+    Examples:
+      vcf_version("10.0.1.5")                  # 自動偵測 SDDC Mgr 版本
+      vcf_version("10.0.1.4", "installer")     # 強制查 VCF Installer
+      vcf_version("10.0.0.101", "vcenter")     # vCenter 版本
+    """
+    errors = []
+
+    def _try_sddc():
+        u = username or SDDC_MANAGER_USER
+        p = password or SDDC_MANAGER_PASS
+        try:
+            t = _sddc_token(host, u, p)
+            r = requests.get(f"https://{host}/v1/manifest",
+                             headers={"Authorization": f"Bearer {t}"},
+                             verify=False, timeout=10)
+            if r.ok:
+                d = r.json()
+                v = d.get("vcfVersion") or d.get("releaseVersion") or "unknown"
+                return f"SDDC Manager: VCF {v}"
+        except Exception as e:
+            errors.append(f"  sddc: {e.__class__.__name__}: {str(e)[:80]}")
+        return None
+
+    def _try_installer():
+        try:
+            r = requests.get(f"https://{host}/v1/system/appliance-info",
+                             verify=False, timeout=10)
+            if r.ok:
+                d = r.json()
+                v = d.get("version") or d.get("buildNumber") or d
+                return f"VCF Installer: {v}"
+        except Exception as e:
+            errors.append(f"  installer: {e.__class__.__name__}: {str(e)[:80]}")
+        return None
+
+    def _try_vcenter():
+        u = username or VCENTER_USER
+        p = password or VCENTER_PASS
+        try:
+            r = requests.get(f"https://{host}/api/appliance/system/version",
+                             auth=(u, p), verify=False, timeout=10)
+            if r.ok:
+                d = r.json()
+                v = d.get("version", "unknown")
+                build = d.get("build", "")
+                return f"vCenter {v} (build {build})"
+        except Exception as e:
+            errors.append(f"  vcenter: {e.__class__.__name__}: {str(e)[:80]}")
+        return None
+
+    probes = {"sddc": _try_sddc, "installer": _try_installer, "vcenter": _try_vcenter}
+    if host_type == "auto":
+        for fn in probes.values():
+            out = fn()
+            if out:
+                return out
+        return f"Could not detect version at {host}\nProbes tried:\n" + "\n".join(errors)
+
+    if host_type not in probes:
+        return f"Invalid host_type: {host_type}. Use auto/sddc/installer/vcenter."
+    out = probes[host_type]()
+    return out or f"Could not detect {host_type} version at {host}\n" + "\n".join(errors)
+
+
+@mcp.tool()
+def list_environments(probe: bool = False) -> str:
+    """
+    列出 lab 內所有已知的 VCF 環境（M01 / M02 / M03 / VCF5.x M02）。
+
+    probe: True 時會額外 TCP-probe 每個 SDDC Manager / VCF Installer / vCenter
+           並嘗試偵測版本（速度較慢，需要連線到 lab）。
+
+    回傳 JSON 字串，方便 Claude parse。
+    """
+    env = json.loads(json.dumps(LAB_ENVIRONMENTS))
+    if not probe:
+        return json.dumps(env, indent=2, ensure_ascii=False)
+
+    for name, cfg in env.items():
+        cfg["_live"] = {}
+        for key in ("sddc_manager_ip", "vcf_installer_ip", "vcenter_ip"):
+            ip = cfg.get(key)
+            if not ip:
+                continue
+            try:
+                with socket.create_connection((ip, 443), timeout=2):
+                    pass
+                cfg["_live"][key] = {"reachable": True}
+                kind = ("sddc" if "sddc_manager" in key
+                        else "installer" if "installer" in key
+                        else "vcenter")
+                try:
+                    cfg["_live"][key]["version"] = vcf_version(ip, kind)
+                except Exception:
+                    pass
+            except OSError:
+                cfg["_live"][key] = {"reachable": False}
+    return json.dumps(env, indent=2, ensure_ascii=False)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

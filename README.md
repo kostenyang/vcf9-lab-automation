@@ -202,6 +202,10 @@ pwsh -File .\autodeployvcfm02.ps1
 | `sddc_manager_api` | SDDC Manager REST API | 查 domain、host、task |
 | `check_dns` | 驗證 DNS 解析 | 確認 FQDN 建好了 |
 | `ping_host` | Ping 主機 | 確認網路可達 |
+| `vcf_version` | 偵測某 host 是 VCF 9.0 / 9.1 / vCenter 版本 | 判斷 M01 目前跑哪個版本 |
+| `list_environments` | 列出所有已知 lab 環境（M01–M03 + VCF5.x） | 給 Claude 一份 IP/版本對照表，`probe=True` 還會即時偵測 |
+
+> 任何 `*_api` 工具都接受 IP 參數，所以同一個 SDDC Manager IP 升級到 9.1 之後不用改 server — 直接呼叫，回傳就是 9.1 的 API 結果。需要明確判斷時用 `vcf_version`。
 
 **Server 安全機制**
 
