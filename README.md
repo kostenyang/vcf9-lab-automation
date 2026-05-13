@@ -120,6 +120,36 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 
 ---
 
+### 2b. `autodeployvcf91m01.ps1` — VCF 9.1 部署（透過 9.0.2 + LCM 升級）
+
+**為何不直接用 9.1 OVA**：目前 Broadcom 只釋出 SDDC Manager 9.1 的 OVA（`E:\9.1\VCF-SDDC-Manager-Appliance-9.1.0.0.25371088.ova`），尚無 Nested ESXi 9.1 OVA。Lab 端要拿到 9.1 必須走「先 9.0.2 → SDDC Manager LCM 升級」路徑。
+
+**與 `autodeployvcf9m01.ps1` 差異**
+
+| 項目 | `autodeployvcf9m01.ps1` | `autodeployvcf91m01.ps1` |
+|------|------------------------|--------------------------|
+| Nested ESXi OVA | 9.0.2 | 9.0.2（相同） |
+| VCF Installer OVA | SDDC Mgr 9.0.1.0 | SDDC Mgr 9.0.2.0（較新） |
+| 目標版本 | 9.0.2 | 9.1（部署後升級） |
+| IP / Hostname | M01（10.0.1.10–13） | 同 M01，會取代既有部署 |
+
+**完整 9.1 部署流程**
+
+```
+Step 1  pwsh -File .\autodeployvcf91m01.ps1       # 部署 9.0.2 VM
+Step 2  等 Nested ESXi 開機
+Step 3  pwsh -File .\vcf9-bringup.ps1             # 9.0.2 bringup
+Step 4  上傳 9.1 SDDC Mgr bundle 到 SDDC Manager LCM
+        → SDDC Manager UI → Lifecycle Management → Bundle Management
+        → 或用 API: sddc_manager_api POST /v1/bundles
+Step 5  在 SDDC Manager 跑 Upgrade Workflow（9.0.2 → 9.1）
+Step 6  vCenter / ESXi / NSX bundle 等 Broadcom 釋出後再分階段升級
+```
+
+> **注意**：目前手上只有 SDDC Manager 9.1 OVA。vCenter / ESXi / NSX 的 9.1 bundle 需要另外從 Broadcom Support Portal 取得才能跑完整 LCM 升級。
+
+---
+
 ### 3. `autodeployvcfm02.ps1` — VCF 5.x M02 Workload Domain VM 部署
 
 **用途**：部署 VCF 5.2 Workload Domain 的 Nested ESXi VM，使用舊版 Cloud Builder 架構。
@@ -366,6 +396,7 @@ journalctl -u vcf-mcp -n 50
 ```
 VCF9/vcf9autodeploy/
 ├── autodeployvcf9m01.ps1         # VCF9 M01 VM 部署（主腳本，勿修改）
+├── autodeployvcf91m01.ps1        # VCF9.1 部署（透過 9.0.2 + LCM 升級）
 ├── autodeployvcfm02.ps1          # VCF5.x M02 VM 部署（主腳本，勿修改）
 ├── vcf9-bringup.ps1              # VCF9 bringup 提交與監控
 ├── vcf-lab-mcp-server.py         # Claude AI MCP 工具 server
