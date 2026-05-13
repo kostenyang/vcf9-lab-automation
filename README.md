@@ -120,7 +120,7 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 
 ---
 
-### 2b. `autodeployvcf91m01.ps1` — VCF 9.1 部署（透過 9.0.2 + LCM 升級）
+### 2b. `autodeployvcf91m01.ps1` / `autodeployvcf91m02.ps1` / `autodeployvcf91m03.ps1` — VCF 9.1 部署（透過 9.0.2 + LCM 升級）
 
 **為何不直接用 9.1 OVA**：目前 Broadcom 只釋出 SDDC Manager 9.1 的 OVA（`E:\9.1\VCF-SDDC-Manager-Appliance-9.1.0.0.25371088.ova`），尚無 Nested ESXi 9.1 OVA。Lab 端要拿到 9.1 必須走「先 9.0.2 → SDDC Manager LCM 升級」路徑。
 
@@ -133,10 +133,20 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 | 目標版本 | 9.0.2 | 9.1（部署後升級） |
 | IP / Hostname | M01（10.0.1.10–13） | 同 M01，會取代既有部署 |
 
+**M01 / M02 / M03 IP 對照**
+
+| Variant | Nested ESXi | SDDC Manager | VCF Installer |
+|---------|-------------|--------------|---------------|
+| `autodeployvcf91m01.ps1` | 10.0.1.10–13 | 10.0.1.5 | 10.0.1.4 |
+| `autodeployvcf91m02.ps1` | 10.0.1.14–17 | 10.0.1.18 | 10.0.1.4 |
+| `autodeployvcf91m03.ps1` | 10.0.1.50–53 | 10.0.1.56 | 10.0.1.4 |
+
+> 三組都跟原本 9.0 m01/m02/m03 用相同 IP，是「取代」既有環境的概念。
+
 **完整 9.1 部署流程**
 
 ```
-Step 1  pwsh -File .\autodeployvcf91m01.ps1       # 部署 9.0.2 VM
+Step 1  pwsh -File .\autodeployvcf91m0X.ps1       # X = 1 / 2 / 3，部署 9.0.2 VM
 Step 2  等 Nested ESXi 開機
 Step 3  pwsh -File .\vcf9-bringup.ps1             # 9.0.2 bringup
 Step 4  上傳 9.1 SDDC Mgr bundle 到 SDDC Manager LCM
@@ -396,7 +406,9 @@ journalctl -u vcf-mcp -n 50
 ```
 VCF9/vcf9autodeploy/
 ├── autodeployvcf9m01.ps1         # VCF9 M01 VM 部署（主腳本，勿修改）
-├── autodeployvcf91m01.ps1        # VCF9.1 部署（透過 9.0.2 + LCM 升級）
+├── autodeployvcf91m01.ps1        # VCF9.1 部署 M01（10.0.1.10–13）— 走 9.0.2 + LCM
+├── autodeployvcf91m02.ps1        # VCF9.1 部署 M02（10.0.1.14–17）— 走 9.0.2 + LCM
+├── autodeployvcf91m03.ps1        # VCF9.1 部署 M03（10.0.1.50–53）— 走 9.0.2 + LCM
 ├── autodeployvcfm02.ps1          # VCF5.x M02 VM 部署（主腳本，勿修改）
 ├── vcf9-bringup.ps1              # VCF9 bringup 提交與監控
 ├── vcf-lab-mcp-server.py         # Claude AI MCP 工具 server
