@@ -149,12 +149,25 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 Step 1  pwsh -File .\autodeployvcf91m0X.ps1       # X = 1 / 2 / 3，部署 9.0.2 VM
 Step 2  等 Nested ESXi 開機
 Step 3  pwsh -File .\vcf9-bringup.ps1             # 9.0.2 bringup
-Step 4  上傳 9.1 SDDC Mgr bundle 到 SDDC Manager LCM
+Step 4  cd 91-upgrade
+        pwsh -File .\Run-BatchUpgrade.ps1         # nested ESXi 9.0 → 9.1（ISO/depot）
+Step 5  pwsh -File .\Apply-NestedVsanWorkarounds.ps1  # 套用 lab vSAN 設定
+Step 6  上傳 9.1 SDDC Mgr bundle 到 SDDC Manager LCM
         → SDDC Manager UI → Lifecycle Management → Bundle Management
-        → 或用 API: sddc_manager_api POST /v1/bundles
-Step 5  在 SDDC Manager 跑 Upgrade Workflow（9.0.2 → 9.1）
-Step 6  vCenter / ESXi / NSX bundle 等 Broadcom 釋出後再分階段升級
+Step 7  在 SDDC Manager 跑 Upgrade Workflow（9.0.2 → 9.1）
+Step 8  vCenter / NSX 等 Broadcom 釋出 bundle 後再分階段升級
 ```
+
+**9.1 升級工具集（`91-upgrade/`）**
+
+| 檔案 | 用途 |
+|------|------|
+| `Run-BatchUpgrade.ps1` | 一鍵批次升級 4 台 nested ESXi（讀 E:\9.1 找 ISO/depot） |
+| `Upgrade-NestedESXi91.ps1` | 單機升級主腳本（Depot mode 用 esxcli，IsoBoot mode 掛 ISO 重開機） |
+| `Apply-NestedVsanWorkarounds.ps1` | 套用 lab 用 vSAN/LSOM advanced settings |
+| `Exit-MaintenanceMode-All.ps1` | 批次退 maintenance mode |
+| `vcf91-lab-workarounds.sh` | VCF 9.1 lab 用的 shell workaround（在 SDDC Manager / installer 上跑） |
+| `ESXi91-ISO-Upgrade-Steps.md` | 手動升級對照文件（ISO 路） |
 
 > **注意**：目前手上只有 SDDC Manager 9.1 OVA。vCenter / ESXi / NSX 的 9.1 bundle 需要另外從 Broadcom Support Portal 取得才能跑完整 LCM 升級。
 
@@ -413,6 +426,13 @@ VCF9/vcf9autodeploy/
 ├── autodeployvcf91m01.ps1        # VCF9.1 部署 M01（10.0.1.10–13）— 走 9.0.2 + LCM
 ├── autodeployvcf91m02.ps1        # VCF9.1 部署 M02（10.0.1.14–17）— 走 9.0.2 + LCM
 ├── autodeployvcf91m03.ps1        # VCF9.1 部署 M03（10.0.1.50–53）— 走 9.0.2 + LCM
+├── 91-upgrade/
+│   ├── Run-BatchUpgrade.ps1                # 批次 nested ESXi 9.0→9.1
+│   ├── Upgrade-NestedESXi91.ps1            # 單機 ESXi 升級主腳本
+│   ├── Apply-NestedVsanWorkarounds.ps1     # vSAN lab workaround
+│   ├── Exit-MaintenanceMode-All.ps1        # 批次退 maintenance mode
+│   ├── vcf91-lab-workarounds.sh            # SDDC Manager / installer shell workaround
+│   └── ESXi91-ISO-Upgrade-Steps.md         # 手動升級流程文件
 ├── autodeployvcfm02.ps1          # VCF5.x M02 VM 部署（主腳本，勿修改）
 ├── vcf9-bringup.ps1              # VCF9 bringup 提交與監控
 ├── vcf-lab-mcp-server.py         # Claude AI MCP 工具 server
