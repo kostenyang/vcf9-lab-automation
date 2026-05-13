@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "vcf-lab": {
+      "type": "sse",
+      "url": "https://10.0.0.65:7000/sse",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_YOUR_TOKEN_FROM_ADMIN"
+      }
+    }
+  }
+}

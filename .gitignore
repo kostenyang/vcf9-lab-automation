@@ -1,0 +1,35 @@
+# Secrets / per-user config
+.mcp.json
+.claude/settings.local.json
+keys.json
+*.key
+key.pem
+*_rsa
+*_rsa.pub
+
+# Generated configs containing passwords
+vcf9-m*-config.json
+vcf9-m*-config-patched.json
+vcenter-folders.csv
+vcenter-folders.json
+e-drive-ovas.txt
+vcf9installer-ovf-props.txt
+check-dns-m*-results.txt
+
+# Logs
+*.log
+
+# Junk / scratch
+Untitled*.ini
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Nested old repo snapshots
+vcf9-autodeploy/
+vcf9autodeploy/
