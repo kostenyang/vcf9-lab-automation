@@ -1,11 +1,9 @@
 # Author: Based on William Lam's vcf-fleet-automated-lab-deployment
-# Adapted from autodeployvcf9m03.ps1 — Target: VCF 9.1 via 9.0.2 + LCM upgrade
+# Adapted from autodeployvcf9m03.ps1 — Target: VCF 9.1 direct deployment
 #
 # Deployment path:
-#   1. This script deploys Nested ESXi (9.0.2) + VCF Installer (SDDC Mgr 9.0.2) for M03
-#   2. Run vcf9-bringup.ps1 to bring up VCF 9.0.2 on M03 (10.0.1.50–53, SDDC .56)
-#   3. Use SDDC Manager LCM with the 9.1 bundle (E:\9.1\VCF-SDDC-Manager-
-#      Appliance-9.1.0.0.25371088.ova) to upgrade to 9.1
+#   1. This script deploys Nested ESXi 9.1 + VCF Installer (SDDC Mgr 9.1) for M03
+#   2. Run vcf9-bringup.ps1 to bring up VCF 9.1 on M03 (10.0.1.50–53, SDDC .56)
 #
 # IP usage: same as M03 (10.0.1.50–53, SDDC 10.0.1.56) — replaces the M03 deployment.
 # DNS / Nested ESXi VLAN / Trunk-Nobinding portgroup must already exist.
@@ -15,9 +13,9 @@ $VIServer   = "10.0.0.101"
 $VIUsername = "administrator@vsphere.local"
 $VIPassword = "VMware1!"
 
-# Full Path to Nested ESXi 9.0.2 & VCF Installer (SDDC Mgr 9.0.2) OVA
-$NestedESXiApplianceOVA = "E:\Nested_ESXi9.0.2_Appliance_Template_v1.0.ova"
-$VCFInstallerOVA        = "E:\VCF-SDDC-Manager-Appliance-9.0.2.0.25151285.ova"
+# Full Path to Nested ESXi 9.1 & VCF Installer (SDDC Mgr 9.1) OVA
+$NestedESXiApplianceOVA = "E:\9.1\Nested_ESXi9.1.0.0_Appliance_Template_v1.0.ova"
+$VCFInstallerOVA        = "E:\9.1\VCF-SDDC-Manager-Appliance-9.1.0.0.25371088.ova"
 
 # General Deployment Configuration
 $VMDatacenter = "Datacenter"

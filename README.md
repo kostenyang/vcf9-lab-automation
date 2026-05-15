@@ -120,18 +120,16 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 
 ---
 
-### 2b. `autodeployvcf91m01.ps1` / `autodeployvcf91m02.ps1` / `autodeployvcf91m03.ps1` — VCF 9.1 部署（透過 9.0.2 + LCM 升級）
+### 2b. `autodeployvcf91m01.ps1` / `autodeployvcf91m02.ps1` / `autodeployvcf91m03.ps1` — VCF 9.1 直接部署
 
-**為何不直接用 9.1 OVA**：目前 Broadcom 只釋出 SDDC Manager 9.1 的 OVA（`E:\9.1\VCF-SDDC-Manager-Appliance-9.1.0.0.25371088.ova`），尚無 Nested ESXi 9.1 OVA。Lab 端要拿到 9.1 必須走「先 9.0.2 → SDDC Manager LCM 升級」路徑。
+E:\9.1 內含完整 9.1 OVA 後（Nested ESXi 9.1 + SDDC Manager 9.1），直接走 9.1 部署，不再需要 9.0.2 → LCM 升級路徑。
 
-**與 `autodeployvcf9m01.ps1` 差異**
+**使用的 OVA**
 
-| 項目 | `autodeployvcf9m01.ps1` | `autodeployvcf91m01.ps1` |
-|------|------------------------|--------------------------|
-| Nested ESXi OVA | 9.0.2 | 9.0.2（相同） |
-| VCF Installer OVA | SDDC Mgr 9.0.1.0 | SDDC Mgr 9.0.2.0（較新） |
-| 目標版本 | 9.0.2 | 9.1（部署後升級） |
-| IP / Hostname | M01（10.0.1.10–13） | 同 M01，會取代既有部署 |
+| 元件 | 檔案 |
+|------|------|
+| Nested ESXi | `E:\9.1\Nested_ESXi9.1.0.0_Appliance_Template_v1.0.ova` |
+| VCF Installer / SDDC Mgr | `E:\9.1\VCF-SDDC-Manager-Appliance-9.1.0.0.25371088.ova` |
 
 **M01 / M02 / M03 IP 對照**
 
@@ -146,27 +144,24 @@ pwsh -File .\vcf9-bringup.ps1 -MonitorProgress $false
 **完整 9.1 部署流程**
 
 ```
-Step 1  pwsh -File .\autodeployvcf91m0X.ps1       # X = 1 / 2 / 3，部署 9.0.2 VM
+Step 1  pwsh -File .\autodeployvcf91m0X.ps1       # X = 1 / 2 / 3，直接部署 9.1 VM
 Step 2  等 Nested ESXi 開機
-Step 3  pwsh -File .\vcf9-bringup.ps1             # 9.0.2 bringup
-Step 4  cd 91-upgrade
-        pwsh -File .\Run-BatchUpgrade.ps1         # nested ESXi 9.0 → 9.1（ISO/depot）
-Step 5  pwsh -File .\Apply-NestedVsanWorkarounds.ps1  # 套用 lab vSAN 設定
-Step 6  上傳 9.1 SDDC Mgr bundle 到 SDDC Manager LCM
-        → SDDC Manager UI → Lifecycle Management → Bundle Management
-Step 7  在 SDDC Manager 跑 Upgrade Workflow（9.0.2 → 9.1）
-Step 8  vCenter / NSX 等 Broadcom 釋出 bundle 後再分階段升級
+Step 3  pwsh -File .\vcf9-bringup.ps1             # 9.1 bringup
 ```
+
+就這樣。直接 3 步，不需要中間升級。
 
 **9.1 升級工具集（`91-upgrade/`）**
 
+> 此目錄是給**現有 9.0 環境升到 9.1** 用的（升級路徑），不是給新部署用的。新環境直接跑 `autodeployvcf91m0X.ps1` 即可。
+
 | 檔案 | 用途 |
 |------|------|
-| `Run-BatchUpgrade.ps1` | 一鍵批次升級 4 台 nested ESXi（讀 E:\9.1 找 ISO/depot） |
-| `Upgrade-NestedESXi91.ps1` | 單機升級主腳本（Depot mode 用 esxcli，IsoBoot mode 掛 ISO 重開機） |
+| `Run-BatchUpgrade.ps1` | 批次升級 4 台已部署的 nested ESXi 9.0 → 9.1 |
+| `Upgrade-NestedESXi91.ps1` | 單機升級（Depot mode 或 IsoBoot mode） |
 | `Apply-NestedVsanWorkarounds.ps1` | 套用 lab 用 vSAN/LSOM advanced settings |
 | `Exit-MaintenanceMode-All.ps1` | 批次退 maintenance mode |
-| `vcf91-lab-workarounds.sh` | VCF 9.1 lab 用的 shell workaround（在 SDDC Manager / installer 上跑） |
+| `vcf91-lab-workarounds.sh` | VCF 9.1 lab 用的 shell workaround |
 | `ESXi91-ISO-Upgrade-Steps.md` | 手動升級對照文件（ISO 路） |
 
 > **注意**：目前手上只有 SDDC Manager 9.1 OVA。vCenter / ESXi / NSX 的 9.1 bundle 需要另外從 Broadcom Support Portal 取得才能跑完整 LCM 升級。
